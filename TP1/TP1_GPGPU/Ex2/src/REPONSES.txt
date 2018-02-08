@@ -1,0 +1,33 @@
+blocks : 1
+threads : 100
+taille : 100
+
+Allocation -> Done : 0.147712 ms
+Calculations -> Done : 0.016352 ms
+
+
+blocks : 2
+threads : 50
+taille : 100
+
+Allocation -> Done : 0.1464 ms
+Calculations -> Done : 0.01536 ms
+
+
+blocks : 2
+threads : 100
+taille : 100
+
+Allocation -> Done : 0.112576 ms
+Calculations -> Done : 0.01536 ms
+
+
+blocks : 4
+threads : 25
+taille : 100
+
+Allocation -> Done : 0.10592 ms
+Calculations -> Done : 0.013344 ms
+
+
+Plus il y a de blocs et plus l'allocation ainsi que le calcul se fait rapidement, et plus il y a de threads plus l'allocation est rapide.
