@@ -18,7 +18,7 @@ namespace IMAC
 		const int idThreadG = threadIdx.x // id du thread dans le block 
 							+ blockIdx.x  // id du block dans la grid
 							* blockDim.x;  // taille d'un block, nb threads dans blocks
-		// nb threads global
+		// nb threads global 
 		const int nbThreadsG = blockDim.x 
 							* gridDim.x; // nb blocks dans grid
 
