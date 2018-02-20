@@ -53,16 +53,18 @@ namespace IMAC
 	}
 // ==================================================
 
+
+	__constant__ float dev_matConv[225];
+	texture<uchar4, 2, cudaReadModeElementType> texRef;
+
+
 	__device__ float clampfGPU(const float val, const float min , const float max) 
 	{
 		return fminf(max, fmaxf(min, val));
 	}
 
-	__constant__ float dev_inputMat[225];	
-
-	__global__ void convGPU(const uchar4 *input, const uint imgWidth, const uint imgHeight, 
-					const uint matSize, 
-					uchar4 *output){
+	__global__ void convGPU(const uchar4 *input, const uint imgWidth, const uint imgHeight,
+					const uint matSize, uchar4 *output){
 
 			// id global en x
 		const int idThreadGX = threadIdx.x // id du thread dans le block 
@@ -108,10 +110,15 @@ namespace IMAC
 							dY = imgHeight - 1;
 
 						const int idMat		= j * matSize + i;
-						const int idPixel	= dY * imgWidth + dX;
-						sum.x += (float)input[idPixel].x * dev_inputMat[idMat];
-						sum.y += (float)input[idPixel].y * dev_inputMat[idMat];
-						sum.z += (float)input[idPixel].z * dev_inputMat[idMat];
+						uchar4 value = tex2D(texRef, dX, dY); 
+
+						sum.x += (float)value.x * dev_matConv[idMat];
+						sum.y += (float)value.y * dev_matConv[idMat];
+						sum.z += (float)value.z * dev_matConv[idMat];
+
+						/*sum.x += (float)input[idPixel].x * matConv[idMat];
+						sum.y += (float)input[idPixel].y * matConv[idMat];
+						sum.z += (float)input[idPixel].z * matConv[idMat];*/
 					}
 				}
 				const int idOut = idY * imgWidth + idX;
@@ -123,8 +130,7 @@ namespace IMAC
 		}	
 	}
 
-
-    void studentJob(const std::vector<uchar4> &inputImg, // Input image
+	void studentJob(const std::vector<uchar4> &inputImg, // Input image
 					const uint imgWidth, const uint imgHeight, // Image size
                     const std::vector<float> &matConv, // Convolution matrix (square)
 					const uint matSize, // Matrix size (width or height)
@@ -134,7 +140,7 @@ namespace IMAC
 	{
 		ChronoGPU chrGPU;
 
-		// 3 arrays for GPU
+		// 2 arrays for GPU
 		uchar4 *dev_inputImg = NULL;
 		uchar4 *dev_output = NULL;
 
@@ -142,39 +148,51 @@ namespace IMAC
 		chrGPU.start();
 		const size_t bytesImg = inputImg.size() * sizeof(uchar4);
 		const size_t bytesMat = matConv.size() * sizeof(float);
+		size_t pitchImg = 0;
 
-		HANDLE_ERROR(cudaMalloc((void **) &dev_inputImg, bytesImg));
+		HANDLE_ERROR(cudaMallocPitch((void**) &dev_inputImg, &pitchImg, imgWidth * sizeof(uchar4), imgHeight));
 		HANDLE_ERROR(cudaMalloc((void **) &dev_output, bytesImg));
 
 		chrGPU.stop();
 		std::cout 	<< "Allocation -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 	
 		std::cout 	<< "Copying data to GPU : ";
-		chrGPU.start();
+		chrGPU.start(); 
+
 		// Copy data from host to device (input arrays) 
-		HANDLE_ERROR(cudaMemcpy(dev_inputImg, inputImg.data(), bytesImg, cudaMemcpyHostToDevice));
-		HANDLE_ERROR(cudaMemcpyToSymbol(dev_inputMat, matConv.data(), bytesMat));
+		
+		HANDLE_ERROR(cudaMemcpy2D(dev_inputImg, pitchImg, inputImg.data(),
+									imgWidth * sizeof(uchar4), imgWidth * sizeof(uchar4), 
+									imgHeight, cudaMemcpyHostToDevice));
+		
+		HANDLE_ERROR(cudaMemcpyToSymbol(dev_matConv, matConv.data(), bytesMat));
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
+
+		// Texture
+		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar4>();
+
+		HANDLE_ERROR(cudaBindTexture2D(NULL, texRef, dev_inputImg, cudaCreateChannelDesc<uchar4>(), imgWidth, imgHeight, pitchImg));
 
 		// Launch kernel
 		chrGPU.start();//dim3
 		std::cout 	<< "Lauching the kernel";
-		convGPU<<<dim3(16, 16), dim3(32, 32)>>>(dev_inputImg, imgWidth, imgHeight, 
-												matSize, dev_output);
+		convGPU<<<dim3(16, 16), dim3(32, 32)>>>(dev_inputImg, imgWidth, imgHeight,
+															matSize, dev_output);
 		chrGPU.stop();
 		std::cout 	<< "Calculations -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl << std::endl;
 
 		std::cout 	<< "Copying data to CPU : ";
 		chrGPU.start();
 		// Copy data from device to host (output array)  
-		HANDLE_ERROR(cudaMemcpy(output.data(), dev_output, bytesImg, cudaMemcpyDeviceToHost));
+		HANDLE_ERROR (cudaMemcpy(output.data(), dev_output, bytesImg, cudaMemcpyDeviceToHost));
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
 		compareImages(resultCPU, output);
 
 		// Free arrays on device
+		HANDLE_ERROR(cudaUnbindTexture(texRef));
 		HANDLE_ERROR(cudaFree(dev_inputImg));
 		HANDLE_ERROR(cudaFree(dev_output));
 

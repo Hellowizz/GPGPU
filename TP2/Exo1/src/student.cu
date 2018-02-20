@@ -142,9 +142,9 @@ namespace IMAC
 		const size_t bytesImg = inputImg.size() * sizeof(uchar4);
 		const size_t bytesMat = inputImg.size() * sizeof(float);
 
-		cudaMalloc((void **) &dev_inputImg, bytesImg);
-		cudaMalloc((void **) &dev_output, bytesImg);
-		cudaMalloc((void **) &dev_inputMat, bytesMat);
+		HANDLE_ERROR(cudaMalloc((void **) &dev_inputImg, bytesImg));
+		HANDLE_ERROR(cudaMalloc((void **) &dev_output, bytesImg));
+		HANDLE_ERROR(cudaMalloc((void **) &dev_inputMat, bytesMat));
 
 		chrGPU.stop();
 		std::cout 	<< "Allocation -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
@@ -152,8 +152,8 @@ namespace IMAC
 		std::cout 	<< "Copying data to GPU : ";
 		chrGPU.start();
 		// Copy data from host to device (input arrays) 
-		cudaMemcpy(dev_inputImg, inputImg.data(), bytesImg, cudaMemcpyHostToDevice);
-		cudaMemcpy(dev_inputMat, matConv.data(), bytesMat, cudaMemcpyHostToDevice);
+		HANDLE_ERROR(cudaMemcpy(dev_inputImg, inputImg.data(), bytesImg, cudaMemcpyHostToDevice));
+		HANDLE_ERROR(cudaMemcpy(dev_inputMat, matConv.data(), bytesMat, cudaMemcpyHostToDevice));
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
@@ -168,14 +168,16 @@ namespace IMAC
 		std::cout 	<< "Copying data to CPU : ";
 		chrGPU.start();
 		// Copy data from device to host (output array)  
-		cudaMemcpy(output.data(), dev_output, bytesImg, cudaMemcpyDeviceToHost);
+		HANDLE_ERROR(cudaMemcpy(output.data(), dev_output, bytesImg, cudaMemcpyDeviceToHost));
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
+		compareImages(resultCPU, output);
+
 		// Free arrays on device
-		cudaFree(dev_inputImg);
-		cudaFree(dev_output);
-		cudaFree(dev_inputMat);
+		HANDLE_ERROR(cudaFree(dev_inputImg));
+		HANDLE_ERROR(cudaFree(dev_output));
+		HANDLE_ERROR(cudaFree(dev_inputMat));
 
 	}
 }
