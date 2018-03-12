@@ -23,19 +23,25 @@ namespace IMAC
 		
 		const uint tid = threadIdx.x;
 
-		shared[tid] = dev_array[idThreadG];
+		if(tid >= size)
+			shared[tid] = 0;
+		else
+			shared[tid] = dev_array[idThreadG];
+		
 		__syncthreads();
 
 		for (int dec = 2; dec < blockDim.x; dec *= 2)
 		{
-			if(tid + dec < blockDim.x)
+			if(tid*dec + dec/2 < blockDim.x)
 			{
-				shared[tid*dec] = umax(shared[tid*dec], shared[tid + dec/2]);
+				shared[tid*dec] = umax(shared[tid*dec], shared[tid*dec + dec/2]);
 			}	
-			__syncthreads();
 		}
+
+		__syncthreads();
+		
 		if (threadIdx.x == 0)
-			dev_partialMax[blockIdx.x] = shared[threadIdx.x];
+			dev_partialMax[blockIdx.x] = shared[0];
 	}
 
 	void studentJob(const std::vector<uint> &array, const uint resCPU /* Just for comparison */)

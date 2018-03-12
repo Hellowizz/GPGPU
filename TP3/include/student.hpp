@@ -42,8 +42,8 @@ namespace IMAC
 		switch(kernelType)
 		{
 			case KERNEL_EX1:
-				dimBlockGrid.x = MAX_NB_THREADS; 
-				dimBlockGrid.y = DEFAULT_NB_BLOCKS;
+				dimBlockGrid.x = MAX_NB_THREADS;
+				dimBlockGrid.y = max((sizeArray + 1) / MAX_NB_THREADS, 1);
 			break;
 			case KERNEL_EX2:
 				/// TODO EX 2
