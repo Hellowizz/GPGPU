@@ -11,6 +11,7 @@
 #define __STUDENT_HPP
 
 #include <vector>
+#include <iostream>
 
 #include "common.hpp"
 #include "chronoGPU.hpp"
@@ -46,11 +47,11 @@ namespace IMAC
 		{
 			case KERNEL_EX1:
 				dimBlockGrid.x = MAX_NB_THREADS;
-				dimBlockGrid.y = max((sizeArray + 1) / MAX_NB_THREADS, 1);
+				dimBlockGrid.y = max((sizeArray + MAX_NB_THREADS - 1) / MAX_NB_THREADS, 1);
 			break;
 			case KERNEL_EX2:
 				dimBlockGrid.x = MAX_NB_THREADS;
-				dimBlockGrid.y = max((sizeArray + 1) / MAX_NB_THREADS, 1);
+				dimBlockGrid.y = max((sizeArray + MAX_NB_THREADS - 1) / MAX_NB_THREADS, 1);
 			break;
 			case KERNEL_EX3:
 				/// TODO EX 3
@@ -99,7 +100,7 @@ namespace IMAC
 				case KERNEL_EX2:
 					/// TODO EX 2
 					maxReduce_ex2<<<dimBlockGrid.y, dimBlockGrid.x, dimBlockGrid.x * sizeof(uint)>>>(dev_array, size, dev_partialMax);
-					break;
+				break;
 				case KERNEL_EX3:
 					/// TODO EX 3
 				break;
@@ -116,11 +117,10 @@ namespace IMAC
 		}
 		chrGPU.stop();
 		timing.x = chrGPU.elapsedTime() / (float)loop; // Stores time for device
-
 		// Retrieve partial result from device to host
 		HANDLE_ERROR(cudaMemcpy(host_partialMax.data(), dev_partialMax, bytesPartialMax, cudaMemcpyDeviceToHost));
 
-		cudaFree(dev_partialMax);
+
 
         // Check for error
 		cudaDeviceSynchronize();
@@ -142,9 +142,7 @@ namespace IMAC
 		chrCPU.stop();
 
 		timing.y = chrCPU.elapsedTime(); // Stores time for host
-		
 		cudaFree(dev_partialMax);
-
         return timing;
 	}  
     

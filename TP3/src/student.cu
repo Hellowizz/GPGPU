@@ -37,9 +37,8 @@ namespace IMAC
 			{
 				shared[id] = umax(shared[id], shared[id + dec]);
 			}	
+			__syncthreads();
 		}
-
-		__syncthreads();
 		
 		if (threadIdx.x == 0)
 			dev_partialMax[blockIdx.x] = shared[0];
@@ -64,13 +63,13 @@ namespace IMAC
 		
 		__syncthreads();
 
-		for (int dec = 1; dec < blockDim.x; dec *= 2)
+		for (int dec = blockDim.x/2; dec >= 1 ; dec /= 2)
 		{
-			const uint id = 2 * dec * tid;
-			if(id < blockDim.x)
+			if(tid < dec)
 			{
-				shared[id] = umax(shared[id], shared[id + dec]);
-			}	
+				shared[tid] = umax(shared[tid], shared[dec + tid]);
+			}
+
 		}
 
 		__syncthreads();
