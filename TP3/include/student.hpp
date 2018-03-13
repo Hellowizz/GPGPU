@@ -32,6 +32,9 @@ namespace IMAC
 
     __global__
     void maxReduce_ex1(const uint *const dev_array, const uint size, uint *const dev_partialMax);
+
+    __global__
+    void maxReduce_ex2(const uint *const dev_array, const uint size, uint *const dev_partialMax);
    
     template<uint kernelType>
     uint2 configureKernel(const uint sizeArray)
@@ -46,7 +49,8 @@ namespace IMAC
 				dimBlockGrid.y = max((sizeArray + 1) / MAX_NB_THREADS, 1);
 			break;
 			case KERNEL_EX2:
-				/// TODO EX 2
+				dimBlockGrid.x = MAX_NB_THREADS;
+				dimBlockGrid.y = max((sizeArray + 1) / MAX_NB_THREADS, 1);
 			break;
 			case KERNEL_EX3:
 				/// TODO EX 3
@@ -70,7 +74,6 @@ namespace IMAC
     float2 reduce(const uint *const dev_array, const uint size, uint &result)
 	{
         const uint2 dimBlockGrid = configureKernel<kernelType>(size);
-
 		// Allocate arrays (host and device) for partial result
 		/// TODO
 		std::vector<uint> host_partialMax(dimBlockGrid.y); 
@@ -84,6 +87,7 @@ namespace IMAC
 		const uint loop = 100;
 		// Average timing on 'loop' iterations
 		chrGPU.start();
+
 		for (uint i = 0; i < loop; ++i)
 		{
 			switch(kernelType) // Template : evaluation at compilation time ! ;-)
@@ -94,7 +98,8 @@ namespace IMAC
 				break;
 				case KERNEL_EX2:
 					/// TODO EX 2
-				break;
+					maxReduce_ex2<<<dimBlockGrid.y, dimBlockGrid.x, dimBlockGrid.x * sizeof(uint)>>>(dev_array, size, dev_partialMax);
+					break;
 				case KERNEL_EX3:
 					/// TODO EX 3
 				break;

@@ -11,7 +11,7 @@
 
 namespace IMAC
 {
-	// ==================================================== Ex 0
+	// ==================================================== Ex 1
     __global__
     void maxReduce_ex1(const uint *const dev_array, const uint size, uint *const dev_partialMax)
 	{
@@ -30,11 +30,46 @@ namespace IMAC
 		
 		__syncthreads();
 
-		for (int dec = 2; dec < blockDim.x; dec *= 2)
+		for (int dec = 1; dec < blockDim.x; dec *= 2)
 		{
-			if(tid*dec + dec/2 < blockDim.x)
+			const uint id = 2 * dec * tid;
+			if(id < blockDim.x)
 			{
-				shared[tid*dec] = umax(shared[tid*dec], shared[tid*dec + dec/2]);
+				shared[id] = umax(shared[id], shared[id + dec]);
+			}	
+		}
+
+		__syncthreads();
+		
+		if (threadIdx.x == 0)
+			dev_partialMax[blockIdx.x] = shared[0];
+	}
+
+	// ==================================================== Ex 2
+    __global__
+    void maxReduce_ex2(const uint *const dev_array, const uint size, uint *const dev_partialMax)
+	{
+		extern __shared__ int shared[];
+
+		const int idThreadG = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+		
+		const uint tid = threadIdx.x;
+
+		if(tid >= size)
+			shared[tid] = 0;
+		else
+			shared[tid] = dev_array[idThreadG];
+		
+		__syncthreads();
+
+		for (int dec = 1; dec < blockDim.x; dec *= 2)
+		{
+			const uint id = 2 * dec * tid;
+			if(id < blockDim.x)
+			{
+				shared[id] = umax(shared[id], shared[id + dec]);
 			}	
 		}
 
@@ -68,6 +103,12 @@ namespace IMAC
 
 		
 		std::cout << "========== Ex 2 " << std::endl;
+		uint res2 = 0; // result
+		// Launch reduction and get timing
+		float2 timing2 = reduce<KERNEL_EX2>(dev_inputArray, array.size(), res2);
+
+        printTiming(timing2);
+		compare(res2, resCPU); // Compare results
 		/// TODO
 
 		std::cout << "========== Ex 3 " << std::endl;
