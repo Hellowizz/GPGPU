@@ -25,7 +25,7 @@ namespace IMAC
 
 		if(tid >= size)
 			shared[tid] = 0;
-		else
+		else 
 			shared[tid] = dev_array[idThreadG];
 		
 		__syncthreads();
@@ -78,6 +78,40 @@ namespace IMAC
 			dev_partialMax[blockIdx.x] = shared[0];
 	}
 
+	// ==================================================== Ex 2
+    __global__
+    void maxReduce_ex3(const uint *const dev_array, const uint size, uint *const dev_partialMax)
+	{
+		extern __shared__ int shared[];
+
+		const int idThreadG = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+		
+		const uint tid = threadIdx.x;
+
+		if(tid >= size)
+			shared[tid] = 0;
+		else
+			shared[tid] =  umax(dev_array[tid], dev_array[blockDim.x/2 + tid]);
+		
+		__syncthreads();
+
+		for (int dec = blockDim.x/2; dec >= 1 ; dec /= 2)
+		{
+			if(tid < dec)
+			{
+				shared[tid] = umax(shared[tid], shared[dec + tid]);
+			}
+
+		}
+
+		__syncthreads();
+		
+		if (threadIdx.x == 0)
+			dev_partialMax[blockIdx.x] = shared[0];
+	}
+
 	void studentJob(const std::vector<uint> &array, const uint resCPU /* Just for comparison */)
     {
 
@@ -112,6 +146,12 @@ namespace IMAC
 
 		std::cout << "========== Ex 3 " << std::endl;
 		/// TODO
+		uint res3 = 0; // result
+		// Launch reduction and get timing
+		float2 timing3 = reduce<KERNEL_EX3>(dev_inputArray, array.size(), res3);
+
+        printTiming(timing3);
+		compare(res3, resCPU); // Compare results
 		
 		std::cout << "========== Ex 4 " << std::endl;
 		/// TODO
