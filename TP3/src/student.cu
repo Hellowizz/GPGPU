@@ -15,7 +15,7 @@ namespace IMAC
     __global__
     void maxReduce_ex1(const uint *const dev_array, const uint size, uint *const dev_partialMax)
 	{
-		extern __shared__ int shared[];
+		extern __shared__ uint shared[];
 
 		const int idThreadG = threadIdx.x // id du thread dans le block 
 							+ blockIdx.x  // id du block dans la grid
@@ -23,7 +23,7 @@ namespace IMAC
 		
 		const uint tid = threadIdx.x;
 
-		if(tid >= size)
+		if(idThreadG >= size)
 			shared[tid] = 0;
 		else 
 			shared[tid] = dev_array[idThreadG];
@@ -48,7 +48,7 @@ namespace IMAC
     __global__
     void maxReduce_ex2(const uint *const dev_array, const uint size, uint *const dev_partialMax)
 	{
-		extern __shared__ int shared[];
+		extern __shared__ uint shared[];
 
 		const int idThreadG = threadIdx.x // id du thread dans le block 
 							+ blockIdx.x  // id du block dans la grid
@@ -56,7 +56,7 @@ namespace IMAC
 		
 		const uint tid = threadIdx.x;
 
-		if(tid >= size)
+		if(idThreadG >= size)
 			shared[tid] = 0;
 		else
 			shared[tid] = dev_array[idThreadG];
@@ -69,10 +69,8 @@ namespace IMAC
 			{
 				shared[tid] = umax(shared[tid], shared[dec + tid]);
 			}
-
-		}
-
-		__syncthreads();
+			__syncthreads();
+		}		
 		
 		if (threadIdx.x == 0)
 			dev_partialMax[blockIdx.x] = shared[0];
@@ -82,18 +80,20 @@ namespace IMAC
     __global__
     void maxReduce_ex3(const uint *const dev_array, const uint size, uint *const dev_partialMax)
 	{
-		extern __shared__ int shared[];
+		extern __shared__ uint shared[];
 
 		const int idThreadG = threadIdx.x // id du thread dans le block 
 							+ blockIdx.x  // id du block dans la grid
-							* blockDim.x;  // taille d'un block, nb threads dans blocks
+							* blockDim.x * 2;  // taille d'un block, nb threads dans blocks
 		
 		const uint tid = threadIdx.x;
 
-		if(tid >= size)
+		if(idThreadG >= size)
 			shared[tid] = 0;
-		else
-			shared[tid] =  umax(dev_array[tid], dev_array[blockDim.x/2 + tid]);
+		else if(blockDim.x + idThreadG < size)
+			shared[tid] = umax(dev_array[idThreadG], dev_array[blockDim.x + idThreadG]);
+		else if(idThreadG < size)
+			shared[tid] = dev_array[idThreadG];
 		
 		__syncthreads();
 
@@ -103,12 +103,54 @@ namespace IMAC
 			{
 				shared[tid] = umax(shared[tid], shared[dec + tid]);
 			}
-
+			__syncthreads();
 		}
+		
+		if (tid == 0)
+			dev_partialMax[blockIdx.x] = shared[0];
+	}
+
+	// ==================================================== Ex 3
+    __global__
+    void maxReduce_ex4(const uint *const dev_array, const uint size, uint *const dev_partialMax)
+	{
+		extern __shared__ uint shared[];
+
+		const int idThreadG = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x * 2;  // taille d'un block, nb threads dans blocks
+		
+		const uint tid = threadIdx.x;
+
+		if(idThreadG >= size)
+			shared[tid] = 0;
+		else if(blockDim.x + idThreadG < size)
+			shared[tid] =  umax(dev_array[idThreadG], dev_array[blockDim.x + idThreadG]);
+		else if(idThreadG < size)
+			shared[tid] = dev_array[idThreadG];
 
 		__syncthreads();
+
+		for (int dec = blockDim.x/2; dec > 32 ; dec /= 2)
+		{
+			if(tid < dec)
+			{
+				shared[tid] = umax(shared[tid], shared[dec + tid]);
+			}
+			__syncthreads();
+		}
+
+		if(tid < 32) {
+			volatile uint * sharedVolatile = shared;
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[32 + tid]);
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[16 + tid]);
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[8 + tid]);
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[4 + tid]);
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[2 + tid]);
+			sharedVolatile[tid] = umax(sharedVolatile[tid], sharedVolatile[1 + tid]);
+		}
 		
-		if (threadIdx.x == 0)
+		if (tid == 0)
 			dev_partialMax[blockIdx.x] = shared[0];
 	}
 
@@ -155,6 +197,12 @@ namespace IMAC
 		
 		std::cout << "========== Ex 4 " << std::endl;
 		/// TODO
+		uint res4 = 0; // result
+		// Launch reduction and get timing
+		float2 timing4 = reduce<KERNEL_EX4>(dev_inputArray, array.size(), res4);
+
+        printTiming(timing4);
+		compare(res4, resCPU); // Compare results
 		
 		std::cout << "========== Ex 5 " << std::endl;
 		/// TODO

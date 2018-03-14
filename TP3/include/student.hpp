@@ -36,6 +36,12 @@ namespace IMAC
 
     __global__
     void maxReduce_ex2(const uint *const dev_array, const uint size, uint *const dev_partialMax);
+
+    __global__
+    void maxReduce_ex3(const uint *const dev_array, const uint size, uint *const dev_partialMax);
+
+    __global__
+    void maxReduce_ex4(const uint *const dev_array, const uint size, uint *const dev_partialMax);
    
     template<uint kernelType>
     uint2 configureKernel(const uint sizeArray)
@@ -47,17 +53,19 @@ namespace IMAC
 		{
 			case KERNEL_EX1:
 				dimBlockGrid.x = MAX_NB_THREADS;
-				dimBlockGrid.y = max((sizeArray + MAX_NB_THREADS - 1) / MAX_NB_THREADS, 1);
+				dimBlockGrid.y = max((sizeArray + dimBlockGrid.x - 1) / dimBlockGrid.x, 1);
 			break;
 			case KERNEL_EX2:
 				dimBlockGrid.x = MAX_NB_THREADS;
-				dimBlockGrid.y = max((sizeArray + MAX_NB_THREADS - 1) / MAX_NB_THREADS, 1);
+				dimBlockGrid.y = max((sizeArray + dimBlockGrid.x - 1) / dimBlockGrid.x, 1);
 			break;
 			case KERNEL_EX3:
 				dimBlockGrid.x = MAX_NB_THREADS;
-				dimBlockGrid.y = max((sizeArray + MAX_NB_THREADS - 1) / MAX_NB_THREADS, 1);
+				dimBlockGrid.y = max((   (sizeArray + (2 * dimBlockGrid.x - 1)) / (2 * dimBlockGrid.x) ), 1);
 			break;
 			case KERNEL_EX4:
+				dimBlockGrid.x = MAX_NB_THREADS;
+				dimBlockGrid.y = max((   (sizeArray + (2 * dimBlockGrid.x - 1)) / (2 * dimBlockGrid.x) ), 1);
 				/// TODO EX 4
 			break;
 			case KERNEL_EX5:
@@ -76,6 +84,9 @@ namespace IMAC
     float2 reduce(const uint *const dev_array, const uint size, uint &result)
 	{
         const uint2 dimBlockGrid = configureKernel<kernelType>(size);
+
+        std::cout << "Launching kernel with " << dimBlockGrid.y << " x " << dimBlockGrid.x << std::endl; 
+
 		// Allocate arrays (host and device) for partial result
 		/// TODO
 		std::vector<uint> host_partialMax(dimBlockGrid.y); 
@@ -86,7 +97,7 @@ namespace IMAC
 
 		ChronoGPU chrGPU;
 		float2 timing; // x: timing GPU, y: timing CPU
-		const uint loop = 100;
+		const uint loop = 1;
 		// Average timing on 'loop' iterations
 		chrGPU.start();
 
@@ -108,6 +119,7 @@ namespace IMAC
 				break;
 				case KERNEL_EX4:
 					/// TODO EX 4
+					maxReduce_ex3<<<dimBlockGrid.y, dimBlockGrid.x, dimBlockGrid.x * sizeof(uint)>>>(dev_array, size, dev_partialMax);
 				break;
 				case KERNEL_EX5:
 					/// TODO EX 5
