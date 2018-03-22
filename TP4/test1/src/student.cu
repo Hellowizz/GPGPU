@@ -31,7 +31,7 @@ namespace IMAC
 		}	
 	}*/
 
-	__global__ void sepiaCUDA(const int width, const int height, const uchar *const dev_input, uchar *const dev_output)
+	__global__ void greyCUDA(const int width, const int height, const uchar *const dev_input, uchar *const dev_output)
 	{
 			// id global en x
 		const int idThreadGX = threadIdx.x // id du thread dans le block 
@@ -54,10 +54,10 @@ namespace IMAC
 			for(int idX = idThreadGX; idX < width; idX += nbThreadsGX){
 				int id = (idY * width + idX) * 3;
 
-				uchar grayVal = fminf(255.f, 0.299f * dev_input[id] + 0.587f * dev_input[id+1] + 0.114f * dev_input[id+2]);
-				dev_output[id] = grayVal;
-				dev_output[id+1] = grayVal;
-				dev_output[id+2] = grayVal;
+				uchar greyVal = fminf(255.f, 0.299f * dev_input[id] + 0.587f * dev_input[id+1] + 0.114f * dev_input[id+2]);
+				dev_output[id] = greyVal;
+				dev_output[id+1] = greyVal;
+				dev_output[id+2] = greyVal;
 			}
 		}	
 	}
@@ -66,9 +66,10 @@ namespace IMAC
 	{
 		ChronoGPU chrGPU;
 
-		// 2 arrays for GPU
+		// 3 arrays for GPU
 		uchar *dev_input = NULL;
 		uchar *dev_output = NULL;
+		uchar *dev_greyLvl = NULL;
 		
 		/// TODOOOOOOOOOOOOOO
 		std::cout 	<< "Allocating 2 arrays: ";
@@ -77,6 +78,7 @@ namespace IMAC
 		
 		cudaMalloc((void **) &dev_input, bytes);
 		cudaMalloc((void **) &dev_output, bytes);
+		cudaMalloc((void **) &dev_output, 255 * sizeof(uchar));
 
 		chrGPU.stop();
 		std::cout 	<< "Allocation -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
@@ -91,7 +93,7 @@ namespace IMAC
 		// Launch kernel
 		chrGPU.start();//dim3
 		std::cout 	<< "Lauching the kernel";
-		sepiaCUDA<<<dim3(16, 16), dim3(32, 32)>>>(width, height, dev_input, dev_output);
+		greyCUDA<<<dim3(16, 16), dim3(32, 32)>>>(width, height, dev_input, dev_output);
 		chrGPU.stop();
 		std::cout 	<< "Calculations -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl << std::endl;
 

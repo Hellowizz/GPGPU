@@ -29,7 +29,7 @@ namespace IMAC
 	}
 
 	// Computes sepia of 'input' and stores result in 'output'
-	void sepiaCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output)
+	void greyCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output)
 	{
 		std::cout << "Process on CPU (sequential)"	<< std::endl;
 		ChronoCPU chrCPU;
@@ -42,9 +42,11 @@ namespace IMAC
 				const uchar inR = input[id];
 				const uchar inG = input[id + 1];
 				const uchar inB = input[id + 2];
-				output[id] = static_cast<uchar>( std::min<float>( 255.f, ( inR * .393f + inG * .769f + inB * .189f ) ) );
-				output[id + 1] = static_cast<uchar>( std::min<float>( 255.f, ( inR * .349f + inG * .686f + inB * .168f ) ) );
-				output[id + 2] = static_cast<uchar>( std::min<float>( 255.f, ( inR * .272f + inG * .534f + inB * .131f ) ) );
+				//float greyVal = std::min<float>( 255.f, ( inR * .299f + inG * .587f + inB * .114f ) ) );
+				float greyVal = (200,20,10);
+				output[id] = static_cast<uchar>( greyVal );
+				output[id + 1] = static_cast<uchar>( greyVal );
+				output[id + 2] = static_cast<uchar>( greyVal );
 			}
 		}
 		chrCPU.stop();
@@ -124,7 +126,9 @@ namespace IMAC
 		std::string outputGPUName = name + "_SepiaGPU" + ext;
 
 		// Computation on CPU
-		sepiaCPU(input, width, height, outputCPU);
+		greyCPU(input, width, height, outputCPU);
+
+		std::cout << "Valeaur de output : " << outputCPU[200] << std::endl;
 		
 		std::cout << "Save image as: " << outputCPUName << std::endl;
 		error = lodepng::encode(outputCPUName, outputCPU, width, height, LCT_RGB);
