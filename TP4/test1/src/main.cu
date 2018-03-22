@@ -28,7 +28,7 @@ namespace IMAC
 		exit(EXIT_FAILURE);
 	}
 
-	// Computes sepia of 'input' and stores result in 'output'
+	// Computes grey of 'input' and stores result in 'output'
 	void greyCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output)
 	{
 		std::cout << "Process on CPU (sequential)"	<< std::endl;
@@ -52,6 +52,48 @@ namespace IMAC
 		chrCPU.stop();
 		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
 	}
+
+	// create the histogram of the computed image
+	void histoCPU(const std::vector<uchar> &greyLvl, const uint width, const uint height, std::vector<int> &output)
+	{
+		std::cout << "Process histogram on CPU" << std::endl;
+
+		for (uint i = 0; i < height; ++i) 
+		{
+			for (uint j = 0; j < width; ++j) 
+			{
+				uint id = greyLvl[i * width + j];
+				output[id] += 1;
+			}
+		}
+	}
+
+	// print all the values in the histogram
+	void printHisto(const std::vector<int> greyLvl)
+	{
+		for(int i = 0; i<256; ++i)
+		{
+			std::cout << "[" << i << "] = " << greyLvl[i] << std::endl;
+		}
+	}
+
+	// verify if there is the same number of pixel in the image and in the histogram
+	bool verifyHisto(const std::vector<int> greyLvl, const uint width, const uint height)
+	{
+		int nbPixel = width * height, sum = 0;
+		for(int i = 0; i<256; ++i)
+		{
+			sum+= greyLvl[i];
+		}
+
+		if(sum == nbPixel)
+			return true;
+		else{
+			std::cout << "there is a sushi ! nbPixel = " << nbPixel << " and sum = " << sum << std::endl;
+			return false;
+		}
+	}
+
 
 	// Compare two vectors
 	bool compare(const std::vector<uchar> &a, const std::vector<uchar> &b)
@@ -114,24 +156,38 @@ namespace IMAC
 		std::cout << "Image has " << width << " x " << height << " pixels (RGB)" << std::endl;
 
 		// Create 2 output images
-		std::vector<uchar> outputCPU(3 * width * height);
-		std::vector<uchar> outputGPU(3 * width * height);
+		std::vector<uchar> outputImageCPU(3 * width * height);
+		std::vector<uchar> outputImageGPU(3 * width * height);
 
 		// Prepare output file name
 		const std::string fileNameStr(fileName);
 		std::size_t lastPoint = fileNameStr.find_last_of(".");
 		std::string ext = fileNameStr.substr(lastPoint);
 		std::string name = fileNameStr.substr(0,lastPoint);
-		std::string outputCPUName = name + "_SepiaCPU" + ext;
-		std::string outputGPUName = name + "_SepiaGPU" + ext;
+		std::string outputImageCPUName = name + "_GreyCPU" + ext;
+		std::string outputImageGPUName = name + "_GreyGPU" + ext;
+
+		// Create the outputs for the histogram
+		std::vector<int> outputHistoCPU(255);
+		std::vector<int> outputHistoGPU(255);
+
+		// Fill the outputs histo
+		for(int i=0; i<256; ++i)
+		{
+			outputHistoCPU[i] = 0;
+			outputHistoGPU[i] = 0;
+		}
 
 		// Computation on CPU
-		greyCPU(input, width, height, outputCPU);
+		greyCPU(input, width, height, outputImageCPU);
+		histoCPU(outputImageCPU, width, height, outputHistoCPU);
+		printHisto(outputHistoCPU);
+		verifyHisto(outputHistoCPU, width, height);
 
-		std::cout << "Valeaur de output : " << outputCPU[200] << std::endl;
+		std::cout << "Valeaur de output : " << outputImageCPU[200] << std::endl;
 		
-		std::cout << "Save image as: " << outputCPUName << std::endl;
-		error = lodepng::encode(outputCPUName, outputCPU, width, height, LCT_RGB);
+		std::cout << "Save image as: " << outputImageCPUName << std::endl;
+		error = lodepng::encode(outputImageCPUName, outputImageCPU, width, height, LCT_RGB);
 		if (error)
 		{
 			throw std::runtime_error("Error loadpng::encode: " + std::string(lodepng_error_text(error)));
@@ -141,10 +197,10 @@ namespace IMAC
 					<< "              STUDENT'S JOB !               "	<< std::endl
 					<< "============================================"	<< std::endl;
 
-		studentJob(input, width, height, outputGPU);
+		studentJob(input, width, height, outputImageGPU);
 
-		std::cout << "Save image as: " << outputGPUName << std::endl;
-		error = lodepng::encode(outputGPUName, outputGPU, width, height, LCT_RGB);
+		std::cout << "Save image as: " << outputImageGPUName << std::endl;
+		error = lodepng::encode(outputImageGPUName, outputImageGPU, width, height, LCT_RGB);
 		if (error)
 		{
 			throw std::runtime_error("Error loadpng::decode: " + std::string(lodepng_error_text(error)));
@@ -153,7 +209,7 @@ namespace IMAC
 		std::cout << "============================================"	<< std::endl << std::endl;
 
 		std::cout << "Checking result..." << std::endl;
-		if (compare(outputCPU, outputGPU))
+		if (compare(outputImageCPU, outputImageGPU))
 		{
 			std::cout << " -> Well done!" << std::endl;
 		}

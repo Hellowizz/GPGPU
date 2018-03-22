@@ -1,7 +1,6 @@
 /*
 * TP 1 - Premiers pas en CUDA
 * --------------------------
-* Ex 3: Filtre d'images sepia
 *
 * File: student.cu
 * Author: Maxime MARIA
@@ -12,26 +11,9 @@
 
 namespace IMAC
 {
-	/*__global__ void sepiaCUDA(const int n, const uchar *const dev_input, uchar *const dev_output)
-	{
-			// id global
-		const int idThreadG = threadIdx.x // id du thread dans le block 
-							+ blockIdx.x  // id du block dans la grid
-							* blockDim.x;  // taille d'un block, nb threads dans blocks
-		// nb threads global 
-		const int nbThreadsG = blockDim.x 
-							* gridDim.x; // nb blocks dans grid
 
-		for (int id = idThreadG; id < n; id += nbThreadsG)
-		{
-			int idInTab = id * 3;
-			dev_output[idInTab] = uchar(fminf(255, (dev_input[id]*0.393 + dev_input[id+1]*0.769 + dev_input[id+2]*0.189)));
-			dev_output[idInTab+1] = uchar(fminf(255, (dev_input[id]*0.349 + dev_input[id+1]*0.686 + dev_input[id+2]*0.168)));
-			dev_output[idInTab+2] = uchar(fminf(255, (dev_input[id]*0.272 + dev_input[id+1]*0.534 + dev_input[id+2]*0.131)));
-		}	
-	}*/
-
-	__global__ void greyCUDA(const int width, const int height, const uchar *const dev_input, uchar *const dev_output)
+	__global__ void greyCUDA(const int width, const int height, 
+		const uchar *const dev_input, uchar *const dev_output)
 	{
 			// id global en x
 		const int idThreadGX = threadIdx.x // id du thread dans le block 
@@ -78,7 +60,7 @@ namespace IMAC
 		
 		cudaMalloc((void **) &dev_input, bytes);
 		cudaMalloc((void **) &dev_output, bytes);
-		cudaMalloc((void **) &dev_output, 255 * sizeof(uchar));
+		cudaMalloc((void **) &dev_greyLvl, 255 * sizeof(uchar));
 
 		chrGPU.stop();
 		std::cout 	<< "Allocation -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
@@ -90,7 +72,7 @@ namespace IMAC
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
-		// Launch kernel
+		// Launch the kernel for the greylvl image
 		chrGPU.start();//dim3
 		std::cout 	<< "Lauching the kernel";
 		greyCUDA<<<dim3(16, 16), dim3(32, 32)>>>(width, height, dev_input, dev_output);
@@ -107,5 +89,6 @@ namespace IMAC
 		// Free arrays on device
 		cudaFree(dev_input);
 		cudaFree(dev_output);
+		cudaFree(dev_greyLvl);
 	}
 }
