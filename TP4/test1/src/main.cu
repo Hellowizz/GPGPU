@@ -174,7 +174,6 @@ namespace IMAC
 		// Fill the outputs histo
 		for(int i=0; i<256; ++i)
 		{
-			outputHistoCPU[i] = 0;
 			outputHistoGPU[i] = 0;
 		}
 
