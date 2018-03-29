@@ -34,14 +34,17 @@ namespace IMAC
 		std::cout << "Process on CPU (sequential)"	<< std::endl;
 		ChronoCPU chrCPU;
 		chrCPU.start();
+
 		for (uint i = 0; i < height; ++i) 
 		{
 			for (uint j = 0; j < width; ++j) 
 			{
 				const uint id = (i * width + j) * 3;
+
 				const uchar inR = input[id];
 				const uchar inG = input[id + 1];
 				const uchar inB = input[id + 2];
+
 				//float greyVal = std::min<float>(255.f, ( inR * .299f + inG * .587f + inB * .114f )));
 				float greyVal = std::min<float>(255.f, ( inR * .299f + inG * .587f + inB * .114f ));
 				output[id] = static_cast<uchar>( greyVal );
@@ -53,37 +56,176 @@ namespace IMAC
 		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
 	}
 
-	// create the histogram of the computed image
-	void histoCPU(const std::vector<uchar> &greyLvl, const uint width, const uint height, std::vector<int> &output)
+	void rgbTOhsvCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<float> &dev_outputH, 
+		std::vector<float> &dev_outputS, std::vector<float> &dev_outputV)
 	{
-		std::cout << "Process histogram on CPU" << std::endl;
+		std::cout << "Process rgbTohsv on CPU (sequential)"	<< std::endl;
+		ChronoCPU chrCPU;
+		chrCPU.start();
+
+		double min, max, delta;
 
 		for (uint i = 0; i < height; ++i) 
 		{
 			for (uint j = 0; j < width; ++j) 
 			{
-				uint id = greyLvl[i * width + j];
-				output[id] += 1;
+				const uint idInRGB = (i * width + j) * 3;
+				const uint idInHSV = (i * width + j);
+
+				const uchar inR = input[idInRGB];
+				const uchar inG = input[idInRGB + 1];
+				const uchar inB = input[idInRGB + 2];
+
+				min = inR < inG ? inR : inG;
+		    	min = min  < inB ? min : inB;
+
+		    	max = inR > inG ? inR : inG;
+		    	max = max  > inB ? max  : inB;
+
+		    	dev_outputV[idInHSV] = max;
+
+		    	delta = max - min;
+		    	if (delta < 0.00001)
+			    {
+			        dev_outputS[idInHSV] = 0;
+			        dev_outputH[idInHSV] = 0;
+			        continue;
+			    }
+			    if (max > 0.0)
+			    {
+			    	dev_outputS[idInHSV] = (delta/ max);
+			    } else {
+			    	dev_outputS[idInHSV] = 0.0;
+			        dev_outputH[idInHSV] = NAN;                           // its now undefined
+			        continue;
+			    }
+
+				if( inR >= max )                           // > is bogus, just keeps compilor happy
+			        dev_outputH[idInHSV] = ( inG - inB ) / delta;        // between yellow & magenta
+			    else if( inG >= max )
+			        dev_outputH[idInHSV] = 2.0 + ( inB - inR ) / delta;  // between cyan & yellow
+			    else
+			        dev_outputH[idInHSV] = 4.0 + ( inR - inG ) / delta;  // between magenta & cyan
+
+			    dev_outputH[idInHSV] *= 60.0;                              // degrees
+
+			    if( dev_outputH[idInHSV] < 0.0 )
+			        dev_outputH[idInHSV] += 360.0;
 			}
 		}
+		chrCPU.stop();
+		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
+	}
+
+	void hsvTOrgbCPU(const std::vector<float> &input_h, const std::vector<float> &input_s, const std::vector<float> &input_v, 
+		const uint width, const uint height,
+		std::vector<uchar> &outputRGB)
+	{
+		std::cout << "Process hsvTorgb on CPU (sequential)"	<< std::endl;
+		ChronoCPU chrCPU;
+		chrCPU.start();
+
+		double hh, p, q, t, ff;
+	    long k;
+
+		for (uint i = 0; i < height; ++i) 
+		{
+			for (uint j = 0; j < width; ++j) 
+			{
+				const uint idInRGB = (i * width + j) * 3;
+				const uint idInHSV = (i * width + j);
+
+				const uint idOutR = idInRGB;
+				const uint idOutG = idInRGB + 1;
+				const uint idOutB = idInRGB + 2;
+
+				hh = input_h[idInHSV];
+
+			    if(hh >= 360.0) hh = 0.0;
+			    hh /= 60.0;
+			    k = (long)hh;
+			    ff = hh - k;
+			    p = input_v[idInHSV] * (1.0 - input_s[idInHSV]);
+			    q = input_v[idInHSV] * (1.0 - (input_s[idInHSV] * ff));
+			    t = input_v[idInHSV] * (1.0 - (input_s[idInHSV] * (1.0 - ff)));
+
+			    switch(k) {
+			    case 0:
+			        outputRGB[idOutR] = input_v[idInHSV];
+			        outputRGB[idOutG] = t;
+			        outputRGB[idOutB] = p;
+			        break;
+			    case 1:
+			        outputRGB[idOutR] = q;
+			        outputRGB[idOutG] = input_v[idInHSV];
+			        outputRGB[idOutB] = p;
+			        break;
+			    case 2:
+			        outputRGB[idOutR] = p;
+			        outputRGB[idOutG] = input_v[idInHSV];
+			        outputRGB[idOutB] = t;
+			        break;
+			    case 3:
+			        outputRGB[idOutR] = p;
+			        outputRGB[idOutG] = q;
+			        outputRGB[idOutB] = input_v[idInHSV];
+			        break;
+			    case 4:
+			        outputRGB[idOutR] = t;
+			        outputRGB[idOutG] = p;
+			        outputRGB[idOutB] = input_v[idInHSV];
+			        break;
+			    case 5:
+			    default:
+			        outputRGB[idOutR] = input_v[idInHSV];
+			        outputRGB[idOutG] = p;
+			        outputRGB[idOutB] = q;
+			        break;
+			    }
+			}
+		}
+		chrCPU.stop();
+		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
+	}
+
+	// create the histogram of the computed image
+	void fillHistoCPU(const std::vector<float> &valueLvl, const uint width, const uint height, std::vector<int> &histogramOutput)
+	{
+		std::cout << "Process histogram on CPU" << std::endl;
+		ChronoCPU chrCPU;
+		chrCPU.start();
+
+		for (uint i = 0; i < height; ++i) 
+		{
+			for (uint j = 0; j < width; ++j) 
+			{
+				uint id = valueLvl[i * width + j];
+				if(valueLvl[i * width + j] > 255)
+					std::cout 	<< " clamerde : " <<  valueLvl[i * width + j]  << std::endl;
+				histogramOutput[id] += 1;
+			}
+		}
+
+		chrCPU.stop();
+		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
 	}
 
 	// print all the values in the histogram
-	void printHisto(const std::vector<int> greyLvl)
+	void printHisto(const std::vector<int> values)
 	{
-		for(int i = 0; i<256; ++i)
+		for(int i = 1; i <= values.size(); ++i)
 		{
-			std::cout << "[" << i << "] = " << greyLvl[i] << std::endl;
+			std::cout << "[" << i << "] = " << values[i] << std::endl;
 		}
 	}
 
 	// verify if there is the same number of pixel in the image and in the histogram
-	bool verifyHisto(const std::vector<int> greyLvl, const uint width, const uint height)
+	bool verifyHisto(const std::vector<int> values, const uint width, const uint height)
 	{
 		int nbPixel = width * height, sum = 0;
-		for(int i = 0; i<256; ++i)
+		for(int i = 1; i <= values.size(); ++i)
 		{
-			sum+= greyLvl[i];
+			sum+= values[i];
 		}
 
 		if(sum == nbPixel)
@@ -92,6 +234,29 @@ namespace IMAC
 			std::cout << "there is a sushi ! nbPixel = " << nbPixel << " and sum = " << sum << std::endl;
 			return false;
 		}
+	}
+
+	// fill the repartition function tab from the histogram
+	void fillRepartCPU(const std::vector<int> &histogram, std::vector<int> &outputRepart)
+	{
+		for(int i=1; i<histogram.size(); ++i)
+		{
+			if(i==1)
+				outputRepart[i] = histogram[i];
+			else
+				outputRepart[i] = histogram[i] + outputRepart[i-1];
+		}
+	}
+
+	// equalize the hue part of the HSV image
+	void equalize(std::vector<float> &values, const std::vector<int> &repart)
+	{
+		for(int i = 1 ; i < values.size() ; ++i){
+			//std::cout << "value before : " << uchar(values[i]) << std::endl;
+            values[i] = uchar(repart[values[i]] / double(values.size()) * 255);
+            //values[i] = uchar(values[i] / 2);
+            //std::cout << "value after : " << values[i] << std::endl;
+        }
 	}
 
 
@@ -155,35 +320,57 @@ namespace IMAC
 		}
 		std::cout << "Image has " << width << " x " << height << " pixels (RGB)" << std::endl;
 
+		std::cout 	<< "============================================"	<< std::endl
+					<< "              CPU'S JOB !               "	<< std::endl
+					<< "============================================"	<< std::endl;
+
 		// Create 2 output images
 		std::vector<uchar> outputImageCPU(3 * width * height);
 		std::vector<uchar> outputImageGPU(3 * width * height);
+
+		// Create 3 output for HSV
+		std::vector<float> hue(width * height);
+		std::vector<float> saturation(width * height);
+		std::vector<float> value(width * height);
 
 		// Prepare output file name
 		const std::string fileNameStr(fileName);
 		std::size_t lastPoint = fileNameStr.find_last_of(".");
 		std::string ext = fileNameStr.substr(lastPoint);
 		std::string name = fileNameStr.substr(0,lastPoint);
-		std::string outputImageCPUName = name + "_GreyCPU" + ext;
-		std::string outputImageGPUName = name + "_GreyGPU" + ext;
+		std::string outputImageCPUName = name + "_testCPU" + ext;
+		std::string outputImageGPUName = name + "_testGPU" + ext;
 
-		// Create the outputs for the histogram
-		std::vector<int> outputHistoCPU(255);
-		std::vector<int> outputHistoGPU(255);
+		// Create the histogram
+		std::vector<int> histoCPU(256);
+		std::vector<int> histoGPU(256);
 
-		// Fill the outputs histo
+		// Create the repartition
+		std::vector<int> repartCPU(256);
+		std::vector<int> repartGPU(256);
+
+		// Fill the histogram and repartitions
 		for(int i=0; i<256; ++i)
 		{
-			outputHistoGPU[i] = 0;
+			histoGPU[i] = 0;
+			repartGPU[i] = 0;
+			repartCPU[i] = 0;
 		}
 
-		// Computation on CPU
-		greyCPU(input, width, height, outputImageCPU);
+		// Computation on CPU GREY
+		/*greyCPU(input, width, height, outputImageCPU);
 		histoCPU(outputImageCPU, width, height, outputHistoCPU);
 		printHisto(outputHistoCPU);
-		verifyHisto(outputHistoCPU, width, height);
+		verifyHisto(outputHistoCPU, width, height);*/
 
-		std::cout << "Valeaur de output : " << outputImageCPU[200] << std::endl;
+		// computation on CPU HSV
+		rgbTOhsvCPU(input, width, height, hue, saturation, value);
+		fillHistoCPU(value, width, height, histoCPU);
+		//printHisto(outputHistoCPU);
+		verifyHisto(histoCPU, width, height);
+		fillRepartCPU(histoCPU, repartCPU);
+		equalize(value, repartCPU);
+		hsvTOrgbCPU(hue, saturation, value, width, height, outputImageCPU);		
 		
 		std::cout << "Save image as: " << outputImageCPUName << std::endl;
 		error = lodepng::encode(outputImageCPUName, outputImageCPU, width, height, LCT_RGB);
@@ -193,7 +380,7 @@ namespace IMAC
 		}
 		
 		std::cout 	<< "============================================"	<< std::endl
-					<< "              STUDENT'S JOB !               "	<< std::endl
+					<< "              GPU'S JOB !               "	<< std::endl
 					<< "============================================"	<< std::endl;
 
 		studentJob(input, width, height, outputImageGPU);

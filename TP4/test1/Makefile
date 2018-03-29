@@ -4,7 +4,7 @@
 #
 ################################################################################
 # $(BIN) est la nom du binaire généré
-BIN=Grey
+BIN=Equalize
 # FLAG
 FLAGS=-Wall -O3
 FLAGS_NVCC= -gencode=arch=compute_50,code=sm_50
