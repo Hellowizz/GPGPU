@@ -12,8 +12,8 @@ cu_ofiles  := $(patsubst src/%.cu,obj/%.cu.o,$(cufiles))
 cxx := g++
 cxx_flags := -Wall $(common_flags)
 
-gpu_arch := compute_50
-gpu_code := sm_50
+gpu_arch := compute_60
+gpu_code := sm_60
 nvcc := nvcc
 nvcc_flags := $(strip \
 	--gpu-architecture=$(gpu_arch) \

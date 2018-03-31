@@ -201,7 +201,7 @@ namespace IMAC
 			{
 				uint id = valueLvl[i * width + j];
 				if(valueLvl[i * width + j] > 255)
-					std::cout 	<< " clamerde : " <<  valueLvl[i * width + j]  << std::endl;
+					std::cout 	<< " problem : " <<  valueLvl[i * width + j]  << std::endl;
 				histogramOutput[id] += 1;
 			}
 		}
@@ -213,7 +213,7 @@ namespace IMAC
 	// print all the values in the histogram
 	void printHisto(const std::vector<int> values)
 	{
-		for(int i = 1; i <= values.size(); ++i)
+		for(int i = 0; i < values.size(); ++i)
 		{
 			std::cout << "[" << i << "] = " << values[i] << std::endl;
 		}
@@ -223,8 +223,8 @@ namespace IMAC
 	bool verifyHisto(const std::vector<int> values, const uint width, const uint height)
 	{
 		int nbPixel = width * height, sum = 0;
-		for(int i = 1; i <= values.size(); ++i)
-		{
+		for(int i = 0; i < values.size(); ++i)
+		{	
 			sum+= values[i];
 		}
 
@@ -252,10 +252,7 @@ namespace IMAC
 	void equalize(std::vector<float> &values, const std::vector<int> &repart)
 	{
 		for(int i = 1 ; i < values.size() ; ++i){
-			//std::cout << "value before : " << uchar(values[i]) << std::endl;
             values[i] = uchar(repart[values[i]] / double(values.size()) * 255);
-            //values[i] = uchar(values[i] / 2);
-            //std::cout << "value after : " << values[i] << std::endl;
         }
 	}
 
@@ -342,15 +339,16 @@ namespace IMAC
 		std::string outputImageGPUName = name + "_testGPU" + ext;
 
 		// Create the histogram
-		std::vector<int> histoCPU(256);
-		std::vector<int> histoGPU(256);
+		int histo_size = 255;
+		std::vector<int> histoCPU(histo_size);
+		std::vector<int> histoGPU(histo_size);
 
 		// Create the repartition
-		std::vector<int> repartCPU(256);
-		std::vector<int> repartGPU(256);
+		std::vector<int> repartCPU(histo_size);
+		std::vector<int> repartGPU(histo_size);
 
 		// Fill the histogram and repartitions
-		for(int i=0; i<256; ++i)
+		for(int i=0; i<histo_size; ++i)
 		{
 			histoGPU[i] = 0;
 			repartGPU[i] = 0;

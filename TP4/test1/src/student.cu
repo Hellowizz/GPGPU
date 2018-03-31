@@ -148,11 +148,7 @@ namespace IMAC
 				const uint idOutG = idInRGB + 1;
 				const uint idOutB = idInRGB + 2;
 
-				dev_outputRGB[idOutR] = 0;//p;
-			    dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
-			    dev_outputRGB[idOutB] = 0;//t;
-
-				/*hh = dev_inputH[idInHSV];
+				hh = dev_inputH[idInHSV];
 
 			    if(hh >= 360.0) hh = 0.0;
 			    hh /= 60.0;
@@ -164,37 +160,134 @@ namespace IMAC
 
 			    switch(k) {
 			    case 0:
-			        dev_outputRGB[idOutR] = 0;//dev_inputV[idInHSV];
-			        dev_outputRGB[idOutG] = 255;//t;
-			        dev_outputRGB[idOutB] = 0;//p;
+			        dev_outputRGB[idOutR] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutG] = t;
+			        dev_outputRGB[idOutB] = p;
 			        break;
 			    case 1:
-			        dev_outputRGB[idOutR] = 0;//q;
-			        dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
-			        dev_outputRGB[idOutB] = 0;//p;
+			        dev_outputRGB[idOutR] = q;
+			        dev_outputRGB[idOutG] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutB] = p;
 			        break;
 			    case 2:
-			        dev_outputRGB[idOutR] = 0;//p;
-			        dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
-			        dev_outputRGB[idOutB] = 0;//t;
+			        dev_outputRGB[idOutR] = p;
+			        dev_outputRGB[idOutG] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutB] = t;
 			        break;
 			    case 3:
-			        dev_outputRGB[idOutR] = 0;//p;
-			        dev_outputRGB[idOutG] = 255;//q;
-			        dev_outputRGB[idOutB] = 0;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutR] = p;
+			        dev_outputRGB[idOutG] = q;
+			        dev_outputRGB[idOutB] = dev_inputV[idInHSV];
 			        break;
 			    case 4:
-			        dev_outputRGB[idOutR] = 0;//t;
-			        dev_outputRGB[idOutG] = 255;//p;
-			        dev_outputRGB[idOutB] = 0;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutR] = t;
+			        dev_outputRGB[idOutG] = p;
+			        dev_outputRGB[idOutB] = dev_inputV[idInHSV];
 			        break;
 			    case 5:
 			    default:
-			        dev_outputRGB[idOutR] = 0;//dev_inputV[idInHSV];
-			        dev_outputRGB[idOutG] = 255;//p;
-			        dev_outputRGB[idOutB] = 0;//q;
+			        dev_outputRGB[idOutR] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutG] = p;
+			        dev_outputRGB[idOutB] = q;
 			        break;
-			    }*/
+			    }
+			}
+		}
+	}
+
+	__global__ void full(float * dev_outputHisto, uint * dev_outputRepart)
+	{
+			// id global en x
+		const int idThreadGX =  // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+			// nb threads global en x
+		const int nbThreadsGX = blockDim.x 
+							* gridDim.x; // nb blocks dans grid
+
+		for (int id = idThreadGX; id < 255; id += nbThreadsGX)
+		{
+			dev_outputHisto[id] = 0;
+			dev_outputRepart[id] = 0;
+		}
+	}
+
+	__global__ void computeHisto_v1(const float *const dev_inputV, const int width, const int height, float * dev_outputHisto)
+	{
+			// id global en x
+		const int idThreadGX = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+			// nb threads global en x
+		const int nbThreadsGX = blockDim.x 
+							* gridDim.x; // nb blocks dans grid
+
+							// id global en y
+		const int idThreadGY = threadIdx.y // id du thread dans le block 
+							+ blockIdx.y  // id du block dans la grid
+							* blockDim.y;  // taille d'un block, nb threads dans blocks
+			// nb threads global en y
+		const int nbThreadsGY = blockDim.y 
+							* gridDim.y; // nb blocks dans grid
+
+		for (int idY = idThreadGY; idY < height; idY += nbThreadsGY)
+		{
+			for(int idX = idThreadGX; idX < width; idX += nbThreadsGX){
+				const uint idInV = (idY * width + idX);
+				const uint id = dev_inputV[idInV];
+					// like dev_outputHisto[id] += 1;
+				atomicAdd(&(dev_outputHisto[id]), 1);		
+			}
+		}
+	}
+
+	__global__ void computeRepart_v1(const float *const dev_inputHisto, uint * dev_outputRepart)
+	{
+		extern __shared__ int shared[];
+
+			// id global en x
+		const int idThreadGX = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+			// nb threads global en x
+		const int nbThreadsGX = blockDim.x 
+							* gridDim.x; // nb blocks dans grid
+
+		__syncthreads();
+		for(int idX = idThreadGX; idX < 255; idX += nbThreadsGX){
+			if(idX == 0)
+				shared[idX] = dev_inputHisto[idX];
+			else
+				shared[idX] = shared[idX - 1] + dev_inputHisto[idX];
+			printf("the value increment (I hope) : %d from thread number %d\n", shared[idX], idThreadGX);
+			__syncthreads();			
+		}
+	}
+
+	__global__ void equalizeCUDA(float * dev_value, const int width, const int height, const uint * dev_inputRepart)
+	{
+			// id global en x
+		const int idThreadGX = threadIdx.x // id du thread dans le block 
+							+ blockIdx.x  // id du block dans la grid
+							* blockDim.x;  // taille d'un block, nb threads dans blocks
+			// nb threads global en x
+		const int nbThreadsGX = blockDim.x 
+							* gridDim.x; // nb blocks dans grid
+
+							// id global en y
+		const int idThreadGY = threadIdx.y // id du thread dans le block 
+							+ blockIdx.y  // id du block dans la grid
+							* blockDim.y;  // taille d'un block, nb threads dans blocks
+			// nb threads global en y
+		const int nbThreadsGY = blockDim.y 
+							* gridDim.y; // nb blocks dans grid
+
+		for (int idY = idThreadGY; idY < height; idY += nbThreadsGY)
+		{
+			for(int idX = idThreadGX; idX < width; idX += nbThreadsGX){
+				const uint idInV = (idY * width + idX);
+				const uint id = dev_value[idInV];
+				dev_value[idInV] = float(dev_inputRepart[id] / double(width * height) * 255.f);
 			}
 		}
 	}
@@ -203,25 +296,29 @@ namespace IMAC
 	{
 		ChronoGPU chrGPU;
 
-		// 3 arrays for GPU
+		// arrays for GPU
 		uchar *dev_input = NULL;
-		float *dev_outputH = NULL;
-		float *dev_outputS = NULL;
-		float *dev_outputV = NULL;
+		float *dev_hue = NULL;
+		float *dev_saturation = NULL;
+		float *dev_value = NULL;
 		uchar *dev_output = NULL;
-		uchar *dev_histo = NULL;
+		float *dev_histo = NULL;
+		uint *dev_repart = NULL;
 		
 		std::cout 	<< "Allocating 2 arrays: ";
 		chrGPU.start();
 		const size_t bytes = input.size() * sizeof(uchar);
 		const size_t HSVbytes = input.size() * sizeof(float);
+		const size_t histoBytes = 255 * sizeof(float);
+		const size_t repartBytes = 255 * sizeof(uint);
 		
 		cudaMalloc((void **) &dev_input, bytes);
-		cudaMalloc((void **) &dev_outputH, HSVbytes);
-		cudaMalloc((void **) &dev_outputS, HSVbytes);
-		cudaMalloc((void **) &dev_outputV, HSVbytes);
+		cudaMalloc((void **) &dev_hue, HSVbytes);
+		cudaMalloc((void **) &dev_saturation, HSVbytes);
+		cudaMalloc((void **) &dev_value, HSVbytes);
 		cudaMalloc((void **) &dev_output, bytes);
-		cudaMalloc((void **) &dev_histo, 255 * sizeof(uchar));
+		cudaMalloc((void **) &dev_histo, histoBytes);
+		cudaMalloc((void **) &dev_repart, repartBytes);
 
 		chrGPU.stop();
 		std::cout 	<< "Allocation -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
@@ -233,16 +330,28 @@ namespace IMAC
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
-		// Launch the kernel for the greylvl image
-		chrGPU.start();//dim3
-		std::cout 	<< "Lauching the kernel";
-		rgbTOhsvCUDA<<<dim3(16, 16), dim3(32, 32)>>>(dev_input, width, height, dev_outputH, dev_outputS, dev_outputV);
-		hsvTOrgbCUDA<<<dim3(16, 16), dim3(32, 32)>>>(dev_outputH, dev_outputS, dev_outputV, width, height, dev_output);
+		chrGPU.start();
+		std::cout 	<< "Lauching GPU part" << std::endl;
+
+
+			// Launch the kernel for the HSV to RGB image
+		rgbTOhsvCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_input, width, height, dev_hue, dev_saturation, dev_value);
+			// Launch the kernel to full the histogram
+		full            <<<20,20>>>                       (dev_histo, dev_repart);
+			// Compute the values of the histogram
+		computeHisto_v1 <<<dim3(16, 16), dim3(32, 32)>>>  (dev_value, width, height, dev_histo);
+		computeRepart_v1<<<20,20, sizeof(uint)*255>>>     (dev_histo, width, height, dev_repart);
+		equalizeCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_value, dev_repart);
+			// Launch the kernel for the HSV to RGB image
+		hsvTOrgbCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_hue, dev_saturation, dev_value, width, height, dev_output);
+		
+
 		chrGPU.stop();
-		std::cout 	<< "Calculations -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl << std::endl;
+		std::cout 	<< "GPU part -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl << std::endl;
 
 		std::cout 	<< "Copying data to CPU : ";
 		chrGPU.start();
+
 		// Copy data from device to host (output array)  
 		cudaMemcpy(output.data(), dev_output, bytes, cudaMemcpyDeviceToHost);
 		chrGPU.stop();
@@ -250,10 +359,11 @@ namespace IMAC
 
 		// Free arrays on device
 		cudaFree(dev_input);
-		cudaFree(dev_outputH);
-		cudaFree(dev_outputS);
-		cudaFree(dev_outputV);
+		cudaFree(dev_hue);
+		cudaFree(dev_saturation);
+		cudaFree(dev_value);
 		cudaFree(dev_output);
 		cudaFree(dev_histo);
+		cudaFree(dev_repart);
 	}
 }
