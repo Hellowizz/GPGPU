@@ -65,7 +65,7 @@ namespace IMAC
 				std::cerr << "Unrognizeed argument: " << argv[i] << std::endl;
 				printUsageAndExit( argv[0] );
 			}
-		}
+		}    
 		
 		std::cout << "Max reduce for an array of size " << size << std::endl;
 		
@@ -83,7 +83,7 @@ namespace IMAC
 			else
 				array[i] = 79;
 		} 
-		/*if (std::rand() % 2 == 0 )*/ array[size - 1] = maxRnd + std::rand() % 797979;
+		if (std::rand() % 2 == 0 ) array[size - 1] = maxRnd + std::rand() % 797979;
 
 		// Find max on CPU
 		uint resultCPU = 0;

@@ -1,45 +1,44 @@
-################################################################################
-#
-# Build script for project
-#
-################################################################################
-# $(BIN) est la nom du binaire généré
-BIN=addVector
-# FLAG
-FLAGS=-Wall -O3
-FLAGS_NVCC= 
-# INCLUDES
-INC=-I./include -I/usr/local/cuda/include
-# SRC Directory
-SRC=src
-# Librairies directory
-LIBDIR=
-# Librairies
-LIBS=-lcuda -lcudart
-# Librairies
-OBJDIR=obj
-# OBJET Directory
-NVCC=nvcc
-GPP=g++
-# $(OBJECTS) sont les objets des fichiers C / C++ standard qui seront générés après la compilation
-OBJECTS= $(OBJDIR)/chronoCPU.o
-# $(OBJECTS_CUDA) sont les objets des fichiers contenant du CUDA (.cu)
-OBJECTS_CUDA=$(OBJDIR)/main.cu.o $(OBJDIR)/student.cu.o $(OBJDIR)/chronoGPU.cu.o
+bin := addVector
 
-all: $(OBJECTS) $(OBJECTS_CUDA)
-	@echo "**** PHASE DE LIEN ****"
-	$(NVCC) $(LIBDIR) $(LIBS) $(OBJECTS) $(OBJECTS_CUDA) -o $(BIN)
+inc  := -I./include -I/usr/local/cuda/include
+libs := -lcuda -lcudart
+common_flags := -std=c++11 -O3 $(inc)
 
-$(OBJDIR)/%.o: $(SRC)/%.cpp
-	@echo "**** $@ ****"
-	$(GPP) $(INC) $(FLAGS) -c $< -o $@
+cppfiles   := $(wildcard src/*.cpp)
+cufiles    := $(wildcard src/*.cu)
+cpp_ofiles := $(patsubst src/%.cpp,obj/%.o,$(cppfiles))
+cu_ofiles  := $(patsubst src/%.cu,obj/%.cu.o,$(cufiles))
 
-$(OBJDIR)/%.cu.o: $(SRC)/%.cu
-	@echo "**** $@ ****"
-	$(NVCC) $(FLAGS_NVCC) $(INC) -c $< -o $@
+cxx := g++
+cxx_flags := -Wall $(common_flags)
+
+gpu_arch := compute_50
+gpu_code := sm_50
+nvcc := nvcc
+nvcc_flags := $(strip \
+	--gpu-architecture=$(gpu_arch) \
+	--gpu-code=$(gpu_code) \
+	-ccbin $(cxx) \
+	-DGPU_ARCH=\"$(gpu_arch)\" -DGPU_CODE=\"$(gpu_code)\" \
+	$(common_flags) \
+)
+
+.PHONY: all clean re mrproper
+
+all: $(bin)
+	
+$(bin): $(cu_ofiles) $(cpp_ofiles)
+	$(nvcc) $(nvcc_flags) -o $(bin) $^ $(libs)
+
+obj/%.cu.o: src/%.cu
+	$(nvcc) $(nvcc_flags) -c $< -o $@
+
+obj/%.o: src/%.cpp
+	$(cxx) $(cxx_flags) -c $< -o $@
 
 clean:
-	- rm $(OBJDIR)/*.o
-	- rm $(BIN)
+	rm -f $(bin) obj/*.o
 
+re: clean all
 
+mroprer: re

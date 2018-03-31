@@ -148,7 +148,11 @@ namespace IMAC
 				const uint idOutG = idInRGB + 1;
 				const uint idOutB = idInRGB + 2;
 
-				hh = dev_inputH[idInHSV];
+				dev_outputRGB[idOutR] = 0;//p;
+			    dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
+			    dev_outputRGB[idOutB] = 0;//t;
+
+				/*hh = dev_inputH[idInHSV];
 
 			    if(hh >= 360.0) hh = 0.0;
 			    hh /= 60.0;
@@ -160,37 +164,37 @@ namespace IMAC
 
 			    switch(k) {
 			    case 0:
-			        dev_outputRGB[idOutR] = dev_inputV[idInHSV];
-			        dev_outputRGB[idOutG] = t;
-			        dev_outputRGB[idOutB] = p;
+			        dev_outputRGB[idOutR] = 0;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutG] = 255;//t;
+			        dev_outputRGB[idOutB] = 0;//p;
 			        break;
 			    case 1:
-			        dev_outputRGB[idOutR] = q;
-			        dev_outputRGB[idOutG] = dev_inputV[idInHSV];
-			        dev_outputRGB[idOutB] = p;
+			        dev_outputRGB[idOutR] = 0;//q;
+			        dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutB] = 0;//p;
 			        break;
 			    case 2:
-			        dev_outputRGB[idOutR] = p;
-			        dev_outputRGB[idOutG] = dev_inputV[idInHSV];
-			        dev_outputRGB[idOutB] = t;
+			        dev_outputRGB[idOutR] = 0;//p;
+			        dev_outputRGB[idOutG] = 255;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutB] = 0;//t;
 			        break;
 			    case 3:
-			        dev_outputRGB[idOutR] = p;
-			        dev_outputRGB[idOutG] = q;
-			        dev_outputRGB[idOutB] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutR] = 0;//p;
+			        dev_outputRGB[idOutG] = 255;//q;
+			        dev_outputRGB[idOutB] = 0;//dev_inputV[idInHSV];
 			        break;
 			    case 4:
-			        dev_outputRGB[idOutR] = t;
-			        dev_outputRGB[idOutG] = p;
-			        dev_outputRGB[idOutB] = dev_inputV[idInHSV];
+			        dev_outputRGB[idOutR] = 0;//t;
+			        dev_outputRGB[idOutG] = 255;//p;
+			        dev_outputRGB[idOutB] = 0;//dev_inputV[idInHSV];
 			        break;
 			    case 5:
 			    default:
-			        dev_outputRGB[idOutR] = dev_inputV[idInHSV];
-			        dev_outputRGB[idOutG] = p;
-			        dev_outputRGB[idOutB] = q;
+			        dev_outputRGB[idOutR] = 0;//dev_inputV[idInHSV];
+			        dev_outputRGB[idOutG] = 255;//p;
+			        dev_outputRGB[idOutB] = 0;//q;
 			        break;
-			    }
+			    }*/
 			}
 		}
 	}
