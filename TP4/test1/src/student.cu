@@ -195,7 +195,7 @@ namespace IMAC
 		}
 	}
 
-	__global__ void full(float * dev_outputHisto, uint * dev_outputRepart)
+	__global__ void full(uint * dev_outputHisto, uint * dev_outputRepart)
 	{
 			// id global en x
 		const int idThreadGX =  // id du thread dans le block 
@@ -205,14 +205,14 @@ namespace IMAC
 		const int nbThreadsGX = blockDim.x 
 							* gridDim.x; // nb blocks dans grid
 
-		for (int id = idThreadGX; id < 255; id += nbThreadsGX)
+		for (int id = idThreadGX; id <= 255; id += nbThreadsGX)
 		{
 			dev_outputHisto[id] = 0;
 			dev_outputRepart[id] = 0;
 		}
 	}
 
-	__global__ void computeHisto_v1(const float *const dev_inputV, const int width, const int height, float * dev_outputHisto)
+	__global__ void computeHisto_v1(const float *const dev_inputV, const int width, const int height, uint * dev_outputHisto)
 	{
 			// id global en x
 		const int idThreadGX = threadIdx.x // id du thread dans le block 
@@ -241,9 +241,9 @@ namespace IMAC
 		}
 	}
 
-	__global__ void computeRepart_v1(const float *const dev_inputHisto, uint * dev_outputRepart)
+	__global__ void computeRepart_v1(const uint *const dev_inputHisto, uint * dev_outputRepart)
 	{
-		extern __shared__ int shared[];
+		extern __shared__ uint shared[];
 
 		uint tid = threadIdx.x;
 		size_t size = 255;
@@ -252,16 +252,24 @@ namespace IMAC
 			shared[0] = dev_inputHisto[0];
 		if(tid > size)
 			shared[tid] = 0;
-		else if(tid + 1 < size)
+		else if(tid + 1 <= size)
 			shared[tid + 1] = dev_inputHisto[tid+1] + dev_inputHisto[tid];
 
 		__syncthreads();
 
-		for (int offset = 2; offset + tid < size; offset *= 2)
-    	{
-      		shared[tid + offset] = shared[tid + offset] + shared[tid];
-      		__syncthreads();
-    	}
+		tid = 255 - tid;
+		for (int offset = 2; tid - offset > 0; offset *= 2)
+		{
+   			shared[tid] = shared[tid - offset] + shared[tid];
+   			__syncthreads();
+		}
+    	__syncthreads();
+
+    	printf("avant case  = %d\n", dev_outputRepart[200]);
+
+    	printf("ENTRE case  = %d\n", dev_outputRepart[224]);
+
+    	printf("la dernière case  = %d\n", dev_outputRepart[254]);
 
     	dev_outputRepart[tid] = shared[tid];
 	}
@@ -289,7 +297,7 @@ namespace IMAC
 			for(int idX = idThreadGX; idX < width; idX += nbThreadsGX){
 				const uint idInV = (idY * width + idX);
 				const uint id = dev_value[idInV];
-				dev_value[idInV] = float(dev_inputRepart[id] / double(width * height) * 255.f);
+				dev_value[idInV] = umin(float(dev_inputRepart[id] / double(width * height) * 255.f), 255);
 			}
 		}
 	}
@@ -304,15 +312,15 @@ namespace IMAC
 		float *dev_saturation = NULL;
 		float *dev_value = NULL;
 		uchar *dev_output = NULL;
-		float *dev_histo = NULL;
+		uint *dev_histo = NULL;
 		uint *dev_repart = NULL;
 		
 		std::cout 	<< "Allocating 2 arrays: ";
 		chrGPU.start();
 		const size_t bytes = input.size() * sizeof(uchar);
 		const size_t HSVbytes = input.size() * sizeof(float);
-		const size_t histoBytes = 255 * sizeof(float);
-		const size_t repartBytes = 255 * sizeof(uint);
+		const size_t histoBytes = 256 * sizeof(uint);
+		const size_t repartBytes = 256 * sizeof(uint);
 		
 		cudaMalloc((void **) &dev_input, bytes);
 		cudaMalloc((void **) &dev_hue, HSVbytes);
