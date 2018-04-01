@@ -245,23 +245,25 @@ namespace IMAC
 	{
 		extern __shared__ int shared[];
 
-			// id global en x
-		const int idThreadGX = threadIdx.x // id du thread dans le block 
-							+ blockIdx.x  // id du block dans la grid
-							* blockDim.x;  // taille d'un block, nb threads dans blocks
-			// nb threads global en x
-		const int nbThreadsGX = blockDim.x 
-							* gridDim.x; // nb blocks dans grid
+		uint tid = threadIdx.x;
+		size_t size = 255;
+
+		if(tid == 0)
+			shared[0] = dev_inputHisto[0];
+		if(tid > size)
+			shared[tid] = 0;
+		else if(tid + 1 < size)
+			shared[tid + 1] = dev_inputHisto[tid+1] + dev_inputHisto[tid];
 
 		__syncthreads();
-		for(int idX = idThreadGX; idX < 255; idX += nbThreadsGX){
-			if(idX == 0)
-				shared[idX] = dev_inputHisto[idX];
-			else
-				shared[idX] = shared[idX - 1] + dev_inputHisto[idX];
-			printf("the value increment (I hope) : %d from thread number %d\n", shared[idX], idThreadGX);
-			__syncthreads();			
-		}
+
+		for (int offset = 2; offset + tid < size; offset *= 2)
+    	{
+      		shared[tid + offset] = shared[tid + offset] + shared[tid];
+      		__syncthreads();
+    	}
+
+    	dev_outputRepart[tid] = shared[tid];
 	}
 
 	__global__ void equalizeCUDA(float * dev_value, const int width, const int height, const uint * dev_inputRepart)
@@ -340,8 +342,8 @@ namespace IMAC
 		full            <<<20,20>>>                       (dev_histo, dev_repart);
 			// Compute the values of the histogram
 		computeHisto_v1 <<<dim3(16, 16), dim3(32, 32)>>>  (dev_value, width, height, dev_histo);
-		computeRepart_v1<<<20,20, sizeof(uint)*255>>>     (dev_histo, width, height, dev_repart);
-		equalizeCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_value, dev_repart);
+		computeRepart_v1<<<1,256, sizeof(uint)*256>>>     (dev_histo, dev_repart);
+		equalizeCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_value, width, height, dev_repart);
 			// Launch the kernel for the HSV to RGB image
 		hsvTOrgbCUDA    <<<dim3(16, 16), dim3(32, 32)>>>  (dev_hue, dev_saturation, dev_value, width, height, dev_output);
 		

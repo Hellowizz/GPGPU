@@ -339,7 +339,7 @@ namespace IMAC
 		std::string outputImageGPUName = name + "_testGPU" + ext;
 
 		// Create the histogram
-		int histo_size = 255;
+		int histo_size = 256;
 		std::vector<int> histoCPU(histo_size);
 		std::vector<int> histoGPU(histo_size);
 
