@@ -22,7 +22,7 @@ namespace IMAC
 
 	// - input: input image RGB
 	// - output: output image RGB
-    void studentJob(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output);
+    void studentJob(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output, std::vector<uint> &outputRepart);
 
 }
 

@@ -28,34 +28,6 @@ namespace IMAC
 		exit(EXIT_FAILURE);
 	}
 
-	// Computes grey of 'input' and stores result in 'output'
-	void greyCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output)
-	{
-		std::cout << "Process on CPU (sequential)"	<< std::endl;
-		ChronoCPU chrCPU;
-		chrCPU.start();
-
-		for (uint i = 0; i < height; ++i) 
-		{
-			for (uint j = 0; j < width; ++j) 
-			{
-				const uint id = (i * width + j) * 3;
-
-				const uchar inR = input[id];
-				const uchar inG = input[id + 1];
-				const uchar inB = input[id + 2];
-
-				//float greyVal = std::min<float>(255.f, ( inR * .299f + inG * .587f + inB * .114f )));
-				float greyVal = std::min<float>(255.f, ( inR * .299f + inG * .587f + inB * .114f ));
-				output[id] = static_cast<uchar>( greyVal );
-				output[id + 1] = static_cast<uchar>( greyVal );
-				output[id + 2] = static_cast<uchar>( greyVal );
-			}
-		}
-		chrCPU.stop();
-		std::cout 	<< " -> Done : " << chrCPU.elapsedTime() << " ms" << std::endl << std::endl;
-	}
-
 	void rgbTOhsvCPU(const std::vector<uchar> &input, const uint width, const uint height, std::vector<float> &dev_outputH, 
 		std::vector<float> &dev_outputS, std::vector<float> &dev_outputV)
 	{
@@ -239,12 +211,11 @@ namespace IMAC
 	// fill the repartition function tab from the histogram
 	void fillRepartCPU(const std::vector<int> &histogram, std::vector<int> &outputRepart)
 	{
-		for(int i=1; i<histogram.size(); ++i)
+		int acc = 0;
+		for(int i=0; i<histogram.size(); ++i)
 		{
-			if(i==1)
-				outputRepart[i] = histogram[i];
-			else
-				outputRepart[i] = histogram[i] + outputRepart[i-1];
+			acc += histogram[i];
+			outputRepart[i] = acc;
 		}
 	}
 
@@ -271,6 +242,23 @@ namespace IMAC
 			if (std::abs(a[i] - b[i]) > 1)
 			{
 				std::cout << "Error at index " << i << ": a = " << uint(a[i]) << " - b = " << uint(b[i]) << std::endl;
+				return false; 
+			}
+		}
+		return true;
+	}
+
+	// Compare two vectors
+	bool compareInt(const std::vector<int> &a, const std::vector<uint> &b)
+	{
+		for (uint i = 0; i < a.size(); ++i)
+		{
+			// Floating precision can cause small difference between host and device
+			if (std::abs(double(a[i] - b[i])) > 1)
+			{
+				std::cout << "Error at index " << i << ": a = " << 
+
+				a[i] << " - b = " << b[i] << std::endl;
 				return false; 
 			}
 		}
@@ -335,8 +323,8 @@ namespace IMAC
 		std::size_t lastPoint = fileNameStr.find_last_of(".");
 		std::string ext = fileNameStr.substr(lastPoint);
 		std::string name = fileNameStr.substr(0,lastPoint);
-		std::string outputImageCPUName = name + "_testCPU" + ext;
-		std::string outputImageGPUName = name + "_testGPU" + ext;
+		std::string outputImageCPUName = name + "_equalizeCPU" + ext;
+		std::string outputImageGPUName = name + "_equalizeGPU" + ext;
 
 		// Create the histogram
 		int histo_size = 256;
@@ -345,21 +333,15 @@ namespace IMAC
 
 		// Create the repartition
 		std::vector<int> repartCPU(histo_size);
-		std::vector<int> repartGPU(histo_size);
+		// test
+		std::vector<uint> repartGPU(3 * width * height);
 
 		// Fill the histogram and repartitions
 		for(int i=0; i<histo_size; ++i)
 		{
 			histoGPU[i] = 0;
-			repartGPU[i] = 0;
 			repartCPU[i] = 0;
 		}
-
-		// Computation on CPU GREY
-		/*greyCPU(input, width, height, outputImageCPU);
-		histoCPU(outputImageCPU, width, height, outputHistoCPU);
-		printHisto(outputHistoCPU);
-		verifyHisto(outputHistoCPU, width, height);*/
 
 		// computation on CPU HSV
 		rgbTOhsvCPU(input, width, height, hue, saturation, value);
@@ -381,7 +363,7 @@ namespace IMAC
 					<< "              GPU'S JOB !               "	<< std::endl
 					<< "============================================"	<< std::endl;
 
-		studentJob(input, width, height, outputImageGPU);
+		studentJob(input, width, height, outputImageGPU, repartGPU);
 
 		std::cout << "Save image as: " << outputImageGPUName << std::endl;
 		error = lodepng::encode(outputImageGPUName, outputImageGPU, width, height, LCT_RGB);
@@ -393,13 +375,22 @@ namespace IMAC
 		std::cout << "============================================"	<< std::endl << std::endl;
 
 		std::cout << "Checking result..." << std::endl;
-		if (compare(outputImageCPU, outputImageGPU))
+		if (compareInt(repartCPU, repartGPU))
 		{
-			std::cout << " -> Well done!" << std::endl;
+			std::cout << " Repart -> Well done!" << std::endl;
 		}
 		else
 		{
-			std::cout << " -> You failed, retry!" << std::endl;
+			std::cout << " Repart -> You failed, retry!" << std::endl;
+		}
+
+		if (compare(outputImageCPU, outputImageGPU))
+		{
+			std::cout << " Image -> Well done!" << std::endl;
+		}
+		else
+		{
+			std::cout << " Image -> You failed, retry!" << std::endl;
 		}
 	}
 }

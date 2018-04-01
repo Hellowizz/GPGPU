@@ -11,39 +11,6 @@
 
 namespace IMAC
 {
-
-	__global__ void greyCUDA(const int width, const int height, 
-		const uchar *const dev_input, uchar *const dev_output)
-	{
-			// id global en x
-		const int idThreadGX = threadIdx.x // id du thread dans le block 
-							+ blockIdx.x  // id du block dans la grid
-							* blockDim.x;  // taille d'un block, nb threads dans blocks
-			// nb threads global en x
-		const int nbThreadsGX = blockDim.x 
-							* gridDim.x; // nb blocks dans grid
-
-							// id global en y
-		const int idThreadGY = threadIdx.y // id du thread dans le block 
-							+ blockIdx.y  // id du block dans la grid
-							* blockDim.y;  // taille d'un block, nb threads dans blocks
-			// nb threads global en y
-		const int nbThreadsGY = blockDim.y 
-							* gridDim.y; // nb blocks dans grid
-
-		for (int idY = idThreadGY; idY < height; idY += nbThreadsGY)
-		{
-			for(int idX = idThreadGX; idX < width; idX += nbThreadsGX){
-				int id = (idY * width + idX) * 3;
-
-				uchar greyVal = fminf(255.f, 0.299f * dev_input[id] + 0.587f * dev_input[id+1] + 0.114f * dev_input[id+2]);
-				dev_output[id] = greyVal;
-				dev_output[id+1] = greyVal;
-				dev_output[id+2] = greyVal;
-			}
-		}	
-	}
-
 	__global__ void rgbTOhsvCUDA(const uchar *const dev_input, const int width, const int height, 
 		float *const dev_outputH, float *const dev_outputS, float *const dev_outputV)
 	{
@@ -198,14 +165,14 @@ namespace IMAC
 	__global__ void full(uint * dev_outputHisto, uint * dev_outputRepart)
 	{
 			// id global en x
-		const int idThreadGX =  // id du thread dans le block 
+		const int idThreadGX = threadIdx.x // id du thread dans le block 
 							+ blockIdx.x  // id du block dans la grid
 							* blockDim.x;  // taille d'un block, nb threads dans blocks
 			// nb threads global en x
 		const int nbThreadsGX = blockDim.x 
 							* gridDim.x; // nb blocks dans grid
 
-		for (int id = idThreadGX; id <= 255; id += nbThreadsGX)
+		for (int id = idThreadGX; id <= 256; id += nbThreadsGX)
 		{
 			dev_outputHisto[id] = 0;
 			dev_outputRepart[id] = 0;
@@ -245,7 +212,7 @@ namespace IMAC
 	{
 		extern __shared__ uint shared[];
 
-		uint tid = threadIdx.x;
+		int tid = threadIdx.x;
 		size_t size = 255;
 
 		if(tid == 0)
@@ -258,18 +225,12 @@ namespace IMAC
 		__syncthreads();
 
 		tid = 255 - tid;
-		for (int offset = 2; tid - offset > 0; offset *= 2)
+		for (int offset = 2; tid - offset >= 0; offset *= 2)
 		{
    			shared[tid] = shared[tid - offset] + shared[tid];
    			__syncthreads();
 		}
     	__syncthreads();
-
-    	printf("avant case  = %d\n", dev_outputRepart[200]);
-
-    	printf("ENTRE case  = %d\n", dev_outputRepart[224]);
-
-    	printf("la dernière case  = %d\n", dev_outputRepart[254]);
 
     	dev_outputRepart[tid] = shared[tid];
 	}
@@ -302,7 +263,7 @@ namespace IMAC
 		}
 	}
 
-	void studentJob(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output)
+	void studentJob(const std::vector<uchar> &input, const uint width, const uint height, std::vector<uchar> &output, std::vector<uint> &repartOutput)
 	{
 		ChronoGPU chrGPU;
 
@@ -315,7 +276,7 @@ namespace IMAC
 		uint *dev_histo = NULL;
 		uint *dev_repart = NULL;
 		
-		std::cout 	<< "Allocating 2 arrays: ";
+		std::cout 	<< "Allocating arrays: ";
 		chrGPU.start();
 		const size_t bytes = input.size() * sizeof(uchar);
 		const size_t HSVbytes = input.size() * sizeof(float);
@@ -364,6 +325,7 @@ namespace IMAC
 
 		// Copy data from device to host (output array)  
 		cudaMemcpy(output.data(), dev_output, bytes, cudaMemcpyDeviceToHost);
+		cudaMemcpy(repartOutput.data(), dev_repart, repartBytes, cudaMemcpyDeviceToHost);
 		chrGPU.stop();
 		std::cout 	<< "Copying -> Done : " << chrGPU.elapsedTime() << " ms" << std::endl;
 
